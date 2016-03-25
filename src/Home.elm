@@ -13,6 +13,7 @@ import Css.Elements as Css
 import Css.Namespace exposing (namespace)
 import Html.CssHelpers
 import ColorScheme exposing (..)
+import Sass
 
 
 cssNamespace = "homepage"
@@ -44,19 +45,20 @@ css =
 
 viewOutput : String -> Html
 viewOutput alias =
-    node "pre"
+    textarea
         [ class [ Output ]
+        , value <| Sass.parse alias
         ]
-        [ ]
+        [ text <| Sass.parse alias ]
 
 viewInput : Signal.Address Action -> String -> Html
-viewInput address alias =
+viewInput address input =
     textarea
         [ on "input" targetValue (Signal.message address << UpdateInput)
         , class [ Input ]
         , placeholder "Put a valid JSON object in here!"
         ]
-        [ text <| alias ]
+        [ text <| input ]
 
 viewErrors : Signal.Address Action -> List String -> Html
 viewErrors address errors =
@@ -84,6 +86,7 @@ view address model =
         [ class [ Content ] ]
         [ Util.stylesheetLink "/homepage.css"
         , viewInput address model.input
+        , viewOutput model.input
         ]
 
 type Action
