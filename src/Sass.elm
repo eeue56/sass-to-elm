@@ -24,6 +24,14 @@ type alias Class =
     , fields : List Field
     }
 
+capitalize : String -> String
+capitalize name =
+    case String.toList name of
+        [] ->
+            ""
+        x::xs ->
+            (String.toUpper (String.fromChar x)) ++ (String.fromList xs)
+
 unitFormat : String -> String -> String
 unitFormat unit value =
     "(" ++ unit ++ " " ++ value ++ ")"
@@ -102,7 +110,7 @@ createClass text =
                     Just
                         { name = String.dropLeft 1 x
                         , fields =
-                            List.map createField (Debug.log "hu" (List.map String.trim xs))
+                            List.map createField (List.map String.trim xs)
                                 |> List.filter ((/=) Nothing)
                                 |> List.map (Maybe.withDefault emptyField)
                         }
@@ -111,15 +119,41 @@ createClass text =
 
 parse : String -> String
 parse values =
-    createClass values
-        |> Maybe.map classFormat
-        |> Maybe.withDefault ""
+    findClasses values
+        |> List.map (\(name, rest) -> String.join "\n" (name :: rest ))
+        |> List.map createClass
+        |> List.map (Maybe.map classFormat)
+        |> List.map (Maybe.withDefault "")
+        |> String.join "\n\n"
 
 
-capitalize : String -> String
-capitalize name =
-    case String.toList name of
-        [] ->
-            ""
-        x::xs ->
-            (String.toUpper (String.fromChar x)) ++ (String.fromList xs)
+takeWhile : (a -> Bool) -> List a -> List a
+takeWhile predicate list =
+  case list of
+    []      -> []
+    x::xs   -> if (predicate x) then x :: takeWhile predicate xs
+               else []
+
+findClasses : String -> List (String, List String)
+findClasses text =
+    let
+        lines =
+            String.lines text
+                |> List.filter (String.trim >> ((/=) ""))
+
+        untilNextClass =
+            takeWhile (not << String.startsWith ".")
+
+        _ =
+            Debug.log "here" lines
+    in
+        case lines of
+            [] ->
+                []
+            class::rest ->
+                if String.startsWith "." class then
+                    Debug.log "here2" <| (class, untilNextClass rest) :: findClasses (String.join "\n" rest)
+                else
+                    findClasses (String.join "\n" rest)
+
+
