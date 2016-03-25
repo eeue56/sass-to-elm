@@ -19,10 +19,12 @@ emptyField =
     , fieldType = Unknown
     }
 
-type alias Class =
-    { name : String
-    , fields : List Field
-    }
+type Class =
+    Class
+        { name : String
+        , fields : List Field
+        , children : List Class
+        }
 
 capitalize : String -> String
 capitalize name =
@@ -83,17 +85,23 @@ createField text =
 
 
 classFormat : Class -> String
-classFormat class =
+classFormat (Class class) =
     let
         formattedFields =
             List.map fieldFormat class.fields
+
+        formattedClasses =
+            List.map classFormat class.children
     in
         String.join ""
             [ "(.) "
             , capitalize class.name
-            , "\n    [ "
+            , "\n    ([ "
             , String.join "\n    , " formattedFields
             , "\n    ]"
+            , "\n ++ ["
+            , String.join "\n    , " formattedClasses
+            , "\n    ])"
             ]
 
 createClass : String -> Maybe Class
@@ -101,19 +109,29 @@ createClass text =
     let
         lines =
             String.lines text
+        _ =
+            Debug.log "rob" text
     in
         case lines of
             [] ->
                 Nothing
             x::xs ->
-                if String.startsWith "." x then
-                    Just
-                        { name = String.dropLeft 1 x
-                        , fields =
-                            List.map createField (List.map String.trim xs)
-                                |> List.filter ((/=) Nothing)
-                                |> List.map (Maybe.withDefault emptyField)
-                        }
+                if String.startsWith "." (String.trim x) then
+                    Just <|
+                        Class
+                            { name = String.dropLeft 1 x
+                            , fields =
+                                List.map createField (List.map String.trim xs)
+                                    |> List.filter ((/=) Nothing)
+                                    |> List.map (Maybe.withDefault emptyField)
+                            , children =
+                                findClasses (String.join "\n" xs)
+                                    |> List.map (\(name, rest) ->
+                                        String.join "\n" (name :: rest )
+                                            |> removeIndent 2
+                                        )
+                                    |> List.filterMap createClass
+                            }
                 else
                     Nothing
 
@@ -152,8 +170,23 @@ findClasses text =
                 []
             class::rest ->
                 if String.startsWith "." class then
-                    Debug.log "here2" <| (class, untilNextClass rest) :: findClasses (String.join "\n" rest)
+                    (class, untilNextClass rest) :: findClasses (String.join "\n" rest)
                 else
                     findClasses (String.join "\n" rest)
 
 
+removeIndent : Int -> String -> String
+removeIndent amount text =
+    let
+        indent =
+            List.repeat amount " "
+                |> String.join ""
+    in
+        String.lines text
+            |> List.map (\line ->
+                if String.startsWith indent line then
+                    String.dropLeft amount line
+                else
+                    line
+                    )
+            |> String.join "\n"
