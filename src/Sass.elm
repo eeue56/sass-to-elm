@@ -42,6 +42,8 @@ splitUnit : String -> (String, String)
 splitUnit value =
     if String.endsWith "px" value then
         (String.dropRight 2 value, "px")
+    else if String.endsWith "%" value then
+        (String.dropRight 1 value, "pct")
     else
         (value, "")
 
@@ -109,8 +111,6 @@ createClass text =
     let
         lines =
             String.lines text
-        _ =
-            Debug.log "rob" text
     in
         case lines of
             [] ->
@@ -156,23 +156,25 @@ findClasses : String -> List (String, List String)
 findClasses text =
     let
         lines =
-            String.lines text
-                |> List.filter (String.trim >> ((/=) ""))
+            linesWithIndent text
+                |> List.filter (snd >> String.trim >> ((/=) ""))
 
-        untilNextClass =
-            takeWhile (not << String.startsWith ".")
-
-        _ =
-            Debug.log "here" lines
+        untilNextClass indent rest =
+            takeWhile (fst >> (\x -> x > indent)) rest
+                |> List.map snd
     in
         case lines of
             [] ->
                 []
-            class::rest ->
-                if String.startsWith "." class then
-                    (class, untilNextClass rest) :: findClasses (String.join "\n" rest)
-                else
-                    findClasses (String.join "\n" rest)
+            (indent, class)::rest ->
+                let
+                    textRest =
+                        List.map snd rest
+                in
+                    if String.startsWith "." <| String.trim class then
+                        (class, untilNextClass indent rest) :: findClasses (String.join "\n" textRest)
+                    else
+                        findClasses (String.join "\n" textRest)
 
 
 removeIndent : Int -> String -> String
@@ -190,3 +192,38 @@ removeIndent amount text =
                     line
                     )
             |> String.join "\n"
+
+
+countChar : String -> String -> Int
+countChar letter text =
+    if text == "" then
+        0
+    else if String.startsWith letter text then
+        1 + (countChar letter (String.dropLeft 1 text))
+    else
+        countChar letter (String.dropLeft 1 text)
+
+hasConsistentIndentation : List Int -> Bool
+hasConsistentIndentation indentLevels =
+    let
+        smallest : Int
+        smallest =
+            List.filter ((==) 0) indentLevels
+                |> List.minimum
+                |> Maybe.withDefault 0
+
+        isDivisible : Int -> Int -> Bool
+        isDivisible a b =
+            a % b == 0
+
+    in
+        List.all (isDivisible smallest) indentLevels
+
+linesWithIndent : String -> List (Int, String)
+linesWithIndent text =
+    let
+        lines =
+            String.lines text
+    in
+        lines
+            |> List.map (\line -> (countChar " " line, line))
