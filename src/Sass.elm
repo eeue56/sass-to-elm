@@ -19,12 +19,30 @@ emptyField =
     , fieldType = Unknown
     }
 
-type Class =
-    Class
+type Symbol
+    = Class
         { name : String
-        , fields : List Field
-        , children : List Class
+        , fields : List Symbol
         }
+    | Id
+        { name : String
+        , fields : List Symbol
+        }
+    | Rule Field
+
+type UnparsedSymbol
+    = UnparsedClass
+        { name : String
+        , fields : List (Int, String)
+        }
+    | UnparsedId
+        { name : String
+        , fields : List (Int, String)
+        }
+    | UnparsedRule
+        { line : String
+        }
+
 
 capitalize : String -> String
 capitalize name =
@@ -86,61 +104,67 @@ createField text =
             Nothing
 
 
-classFormat : Class -> String
-classFormat (Class class) =
+symbolFormat : Symbol -> String
+symbolFormat symbol =
     let
-        formattedFields =
-            List.map fieldFormat class.fields
-
-        formattedClasses =
-            List.map classFormat class.children
+        classFormat class =
+            let
+                formattedFields =
+                    List.map symbolFormat class.fields
+            in
+                String.join ""
+                    [ "(.) "
+                    , capitalize class.name
+                    , "\n    [ "
+                    , String.join "\n    , " formattedFields
+                    , "\n    ]\n"
+                    ]
     in
-        String.join ""
-            [ "(.) "
-            , capitalize class.name
-            , "\n    ([ "
-            , String.join "\n    , " formattedFields
-            , "\n    ]"
-            , "\n ++ ["
-            , String.join "\n    , " formattedClasses
-            , "\n    ])"
-            ]
+        case symbol of
+            Class class ->
+                classFormat class
+            Id class ->
+                classFormat class
+            Rule rule ->
+                fieldFormat rule
 
-createClass : String -> Maybe Class
-createClass text =
-    let
-        lines =
-            String.lines text
-    in
-        case lines of
-            [] ->
-                Nothing
-            x::xs ->
-                if String.startsWith "." (String.trim x) then
-                    Just <|
-                        Class
-                            { name = String.dropLeft 1 x
-                            , fields =
-                                List.map createField (List.map String.trim xs)
-                                    |> List.filter ((/=) Nothing)
-                                    |> List.map (Maybe.withDefault emptyField)
-                            , children =
-                                findClasses (String.join "\n" xs)
-                                    |> List.map (\(name, rest) ->
-                                        String.join "\n" (name :: rest )
-                                            |> removeIndent 2
-                                        )
-                                    |> List.filterMap createClass
-                            }
-                else
-                    Nothing
+
+isClassSymbol : String -> Bool
+isClassSymbol symbol =
+    String.trim symbol
+        |> String.startsWith "."
+
+isFieldSymbol : String -> Bool
+isFieldSymbol symbol =
+    String.trim symbol
+        |> String.contains ":"
+
+createSymbol : UnparsedSymbol -> Maybe Symbol
+createSymbol symbol =
+    case symbol of
+        UnparsedRule rule ->
+            createField rule.line
+                |> Maybe.map Rule
+
+        UnparsedClass class ->
+            Class
+                { name =
+                    class.name
+
+                , fields =
+                    findSymbols class.fields
+                        |> List.filterMap createSymbol
+                }
+                |> Just
+
+        UnparsedId id ->
+            Nothing
 
 parse : String -> String
 parse values =
-    findClasses values
-        |> List.map (\(name, rest) -> String.join "\n" (name :: rest ))
-        |> List.map createClass
-        |> List.map (Maybe.map classFormat)
+    findSymbolsFromText values
+        |> List.map createSymbol
+        |> List.map (Maybe.map symbolFormat)
         |> List.map (Maybe.withDefault "")
         |> String.join "\n\n"
 
@@ -152,29 +176,41 @@ takeWhile predicate list =
     x::xs   -> if (predicate x) then x :: takeWhile predicate xs
                else []
 
-findClasses : String -> List (String, List String)
-findClasses text =
-    let
-        lines =
-            linesWithIndent text
-                |> List.filter (snd >> String.trim >> ((/=) ""))
+findSymbolsFromText : String -> List UnparsedSymbol
+findSymbolsFromText =
+    linesWithIndent
+        >> List.filter (snd >> String.trim >> ((/=) ""))
+        >> findSymbols
 
+findSymbols : List (Int, String) -> List UnparsedSymbol
+findSymbols lines =
+    let
         untilNextClass indent rest =
             takeWhile (fst >> (\x -> x > indent)) rest
-                |> List.map snd
+
     in
         case lines of
             [] ->
                 []
-            (indent, class)::rest ->
+            (indent, line)::rest ->
                 let
-                    textRest =
-                        List.map snd rest
+                    tilNextClass =
+                        untilNextClass indent rest
+
+                    leftOvers =
+                        List.drop (List.length tilNextClass) rest
                 in
-                    if String.startsWith "." <| String.trim class then
-                        (class, untilNextClass indent rest) :: findClasses (String.join "\n" textRest)
+                    if isClassSymbol line then
+                        UnparsedClass
+                            { name = String.dropLeft 1 (String.trim line)
+                            , fields = tilNextClass
+                            } :: findSymbols leftOvers
+                    else if isFieldSymbol line then
+                        UnparsedRule
+                            { line = line
+                            } :: findSymbols leftOvers
                     else
-                        findClasses (String.join "\n" textRest)
+                        findSymbols rest
 
 
 removeIndent : Int -> String -> String
