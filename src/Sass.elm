@@ -11,22 +11,26 @@ type alias Field =
     { name : String
     , value : String
     , fieldType : FieldType
+    , indent : Int
     }
 
 emptyField =
     { name = ""
     , value = ""
     , fieldType = Unknown
+    , indent = 0
     }
 
 type Symbol
     = Class
         { name : String
         , fields : List Symbol
+        , indent : Int
         }
     | Id
         { name : String
         , fields : List Symbol
+        , indent : Int
         }
     | Rule Field
 
@@ -34,13 +38,16 @@ type UnparsedSymbol
     = UnparsedClass
         { name : String
         , fields : List (Int, String)
+        , indent : Int
         }
     | UnparsedId
         { name : String
         , fields : List (Int, String)
+        , indent : Int
         }
     | UnparsedRule
         { line : String
+        , indent : Int
         }
 
 
@@ -77,7 +84,7 @@ fieldValueFormat field =
 
 fieldFormat : Field -> String
 fieldFormat field =
-    field.name ++ (fieldValueFormat field.fieldType)
+    (String.trim field.name) ++ (fieldValueFormat field.fieldType)
 
 guessFieldType : String -> FieldType
 guessFieldType value =
@@ -98,6 +105,7 @@ createField text =
                 { name = x
                 , value = y
                 , fieldType = guessFieldType y
+                , indent = 0
                 }
 
         _ ->
@@ -109,16 +117,35 @@ symbolFormat symbol =
     let
         classFormat class =
             let
+                (classes, rest) =
+                    List.partition
+                        (\x ->
+                            case x of
+                                Class _ ->
+                                    True
+                                _ ->
+                                    False
+                        ) class.fields
+
                 formattedFields =
-                    List.map symbolFormat class.fields
+                    List.map symbolFormat rest
+
+                formattedClasses =
+                    List.map symbolFormat classes
+                        |> List.map (\x -> "   " ++ x)
             in
-                String.join ""
-                    [ "(.) "
-                    , capitalize class.name
-                    , "\n    [ "
-                    , String.join "\n    , " formattedFields
-                    , "\n    ]\n"
-                    ]
+                String.join "\n    ,"
+                <| List.map (\x -> (List.repeat class.indent " " |> String.join "") ++ x)
+                    ( [ "(.) " ++ (capitalize class.name)
+                      , " [ "
+                      ]
+                    ++
+                      (formattedFields ++ formattedClasses)
+                    ++
+                      [ " ]"
+                      ]
+                    )
+
     in
         case symbol of
             Class class ->
@@ -154,6 +181,8 @@ createSymbol symbol =
                 , fields =
                     findSymbols class.fields
                         |> List.filterMap createSymbol
+                , indent =
+                    class.indent
                 }
                 |> Just
 
@@ -204,10 +233,12 @@ findSymbols lines =
                         UnparsedClass
                             { name = String.dropLeft 1 (String.trim line)
                             , fields = tilNextClass
+                            , indent = indent
                             } :: findSymbols leftOvers
                     else if isFieldSymbol line then
                         UnparsedRule
                             { line = line
+                            , indent = indent
                             } :: findSymbols leftOvers
                     else
                         findSymbols rest
