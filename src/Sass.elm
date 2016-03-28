@@ -84,7 +84,7 @@ fieldValueFormat field =
 
 fieldFormat : Field -> String
 fieldFormat field =
-    (String.trim field.name) ++ (fieldValueFormat field.fieldType)
+    (String.trim field.name) ++ " " ++ (fieldValueFormat field.fieldType)
 
 guessFieldType : String -> FieldType
 guessFieldType value =
@@ -133,18 +133,31 @@ symbolFormat symbol =
                 formattedClasses =
                     List.map symbolFormat classes
                         |> List.map (\x -> "   " ++ x)
+
+                firstIndent =
+                    List.repeat class.indent " "
+                        |> String.join ""
+
+                afterIndent =
+                    List.repeat (class.indent + 4) " "
+                        |> String.join ""
+
+                indenter line =
+                    afterIndent ++ line
+
+
+                comma =
+                    "\n" ++ (indenter ", ")
+
             in
-                String.join "\n    ,"
-                <| List.map (\x -> (List.repeat class.indent " " |> String.join "") ++ x)
-                    ( [ "(.) " ++ (capitalize class.name)
-                      , " [ "
-                      ]
-                    ++
-                      (formattedFields ++ formattedClasses)
-                    ++
-                      [ " ]"
-                      ]
-                    )
+                String.join ""
+                    [ firstIndent ++ ("(.) " ++ (capitalize class.name))
+                    , "\n"
+                    , indenter "[ "
+                    , ( String.join comma <| (formattedFields ++ formattedClasses))
+                    , "\n"
+                    , indenter "]"
+                    ]
 
     in
         case symbol of
