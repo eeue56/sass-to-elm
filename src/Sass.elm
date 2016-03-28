@@ -65,12 +65,41 @@ unitFormat unit value =
 
 splitUnit : String -> (String, String)
 splitUnit value =
-    if String.endsWith "px" value then
-        (String.dropRight 2 value, "px")
+    if String.endsWith "px" <| String.trim value then
+        (String.dropRight 2 value
+            |> String.trim
+        , "px"
+        )
     else if String.endsWith "%" value then
-        (String.dropRight 1 value, "pct")
+        (String.dropRight 1 value
+            |> String.trim
+        , "pct"
+        )
     else
         (value, "")
+
+cssToElm : String -> String -> String
+cssToElm name extra =
+    let
+        args =
+            String.trim extra
+                |> String.split " "
+
+        plural =
+            if List.length args < 2 then
+                ""
+            else if List.length args == 2 then
+                "Two"
+            else
+                "Three"
+    in
+        case String.split "-" <| String.trim name of
+            [] ->
+                ""
+            [x] ->
+                x ++ plural
+            (x::xs) ->
+                x ++ (String.join "" <| List.map capitalize xs) ++ plural
 
 
 fieldValueFormat : FieldType -> String
@@ -88,7 +117,7 @@ fieldFormat field =
 
 guessFieldType : String -> FieldType
 guessFieldType value =
-    if String.contains "px" value then
+    if String.contains "px" value || String.contains "%" value then
         let
             (unitValue, unit) =
                 splitUnit value
@@ -101,12 +130,22 @@ createField : String -> Maybe Field
 createField text =
     case String.split ":" text of
         x::y::_ ->
-            Just
-                { name = x
-                , value = y
-                , fieldType = guessFieldType y
-                , indent = 0
-                }
+            let
+                trimX =
+                    String.trim x
+
+                trimY =
+                    String.trim y
+            in
+                Just
+                    { name =
+                        String.trim <| cssToElm trimX trimY
+                    , value =
+                        trimY
+                    , fieldType =
+                        guessFieldType trimY
+                    , indent = 0
+                    }
 
         _ ->
             Nothing
@@ -115,13 +154,15 @@ createField text =
 symbolFormat : Symbol -> String
 symbolFormat symbol =
     let
-        classFormat class =
+        classFormat opener class =
             let
                 (classes, rest) =
                     List.partition
                         (\x ->
                             case x of
                                 Class _ ->
+                                    True
+                                Id _ ->
                                     True
                                 _ ->
                                     False
@@ -132,29 +173,54 @@ symbolFormat symbol =
 
                 formattedClasses =
                     List.map symbolFormat classes
-                        |> List.map (\x -> "   " ++ x)
 
                 firstIndent =
                     List.repeat class.indent " "
                         |> String.join ""
 
                 afterIndent =
-                    List.repeat (class.indent + 4) " "
-                        |> String.join ""
+                    let
+                        amount =
+                            if class.indent == 0 then
+                                2
+                            else
+                                class.indent * 2
+                    in
+                        List.repeat amount " "
+                            |> String.join ""
 
                 indenter line =
                     afterIndent ++ line
 
-
                 comma =
                     "\n" ++ (indenter ", ")
 
+                doubleIndenter line =
+                    afterIndent ++ afterIndent ++ line
+
+                doubleComma =
+                    "\n" ++ (doubleIndenter ", ")
+
+                children =
+                    if List.length formattedClasses == 0 then
+                        ""
+                    else
+                        [ comma ++ "children"
+                        , "\n"
+                        , doubleIndenter "[ "
+                        , String.join doubleComma (List.map String.trim formattedClasses)
+                        , "\n"
+                        , doubleIndenter "]"
+                        ]
+                            |> String.join ""
+
             in
                 String.join ""
-                    [ firstIndent ++ ("(.) " ++ (capitalize class.name))
+                    [ firstIndent ++ (opener ++ " " ++ (capitalize class.name))
                     , "\n"
                     , indenter "[ "
-                    , ( String.join comma <| (formattedFields ++ formattedClasses))
+                    , String.join comma (formattedFields)
+                    , children
                     , "\n"
                     , indenter "]"
                     ]
@@ -162,9 +228,9 @@ symbolFormat symbol =
     in
         case symbol of
             Class class ->
-                classFormat class
+                classFormat "(.)" class
             Id class ->
-                classFormat class
+                classFormat "(#)" class
             Rule rule ->
                 fieldFormat rule
 
@@ -173,6 +239,11 @@ isClassSymbol : String -> Bool
 isClassSymbol symbol =
     String.trim symbol
         |> String.startsWith "."
+
+isIdSymbol : String -> Bool
+isIdSymbol symbol =
+    String.trim symbol
+        |> String.startsWith "#"
 
 isFieldSymbol : String -> Bool
 isFieldSymbol symbol =
@@ -200,7 +271,17 @@ createSymbol symbol =
                 |> Just
 
         UnparsedId id ->
-            Nothing
+            Id
+                { name =
+                    id.name
+
+                , fields =
+                    findSymbols id.fields
+                        |> List.filterMap createSymbol
+                , indent =
+                    id.indent
+                }
+                |> Just
 
 parse : String -> String
 parse values =
@@ -229,7 +310,6 @@ findSymbols lines =
     let
         untilNextClass indent rest =
             takeWhile (fst >> (\x -> x > indent)) rest
-
     in
         case lines of
             [] ->
@@ -244,6 +324,12 @@ findSymbols lines =
                 in
                     if isClassSymbol line then
                         UnparsedClass
+                            { name = String.dropLeft 1 (String.trim line)
+                            , fields = tilNextClass
+                            , indent = indent
+                            } :: findSymbols leftOvers
+                    else if isIdSymbol line then
+                        UnparsedId
                             { name = String.dropLeft 1 (String.trim line)
                             , fields = tilNextClass
                             , indent = indent
@@ -306,4 +392,4 @@ linesWithIndent text =
             String.lines text
     in
         lines
-            |> List.map (\line -> (countChar " " line, line))
+            |> List.map (\line -> (countChar " " line, String.trim line))
