@@ -13,7 +13,8 @@ import Css.Elements as Css
 import Css.Namespace exposing (namespace)
 import Html.CssHelpers
 import ColorScheme exposing (..)
-import Sass
+import Sass exposing (Symbol(..))
+import CssValidator exposing (isValidElmCssFunction)
 
 
 cssNamespace = "homepage"
@@ -43,13 +44,18 @@ css =
 
 
 
-viewOutput : String -> Html
+viewOutput : List Sass.Symbol -> Html
 viewOutput alias =
-    textarea
-        [ class [ Output ]
-        , value <| Sass.parse alias
-        ]
-        [ text <| Sass.parse alias ]
+    let
+        elmCss =
+            alias
+                |> Sass.toElmCss
+    in
+        textarea
+            [ class [ Output ]
+            , value elmCss
+            ]
+            [ text elmCss ]
 
 viewInput : Signal.Address Action -> String -> Html
 viewInput address input =
@@ -60,11 +66,35 @@ viewInput address input =
         ]
         [ text <| input ]
 
-viewErrors : Signal.Address Action -> List String -> Html
-viewErrors address errors =
-    ul
-        []
-        ((List.map (\error -> li [] [ text error ]) errors))
+viewErrors : List Sass.Symbol -> Html
+viewErrors alias =
+    let
+        errors =
+            alias
+                |> Sass.allRules
+                |> List.filterMap (\x ->
+                    case x of
+                        Rule rule ->
+                            if isValidElmCssFunction rule.name then
+                                Nothing
+                            else
+                                String.join ""
+                                    [ "The function "
+                                    , rule.name
+                                    , " was not found for the rule "
+                                    , rule.value
+                                    , ".\nMaybe you meant: "
+                                    , String.join ", " <| CssValidator.suggestions (CssValidator.names) rule.name
+                                    ]
+                                    |> Just
+                        _ ->
+                            Nothing
+                    )
+    in
+
+        ul
+            []
+            ((List.map (\error -> li [] [ text error ]) errors))
 
 
 aliasCss : Css.Snippet
@@ -82,12 +112,17 @@ aliasCss =
 
 view : Signal.Address Action -> Model -> Html
 view address model =
-    div
-        [ class [ Content ] ]
-        [ Util.stylesheetLink "/homepage.css"
-        , viewInput address model.input
-        , viewOutput model.input
-        ]
+    let
+        sass =
+            Sass.parse model.input
+    in
+        div
+            [ class [ Content ] ]
+            [ Util.stylesheetLink "/homepage.css"
+            , viewInput address model.input
+            , viewOutput sass
+            , viewErrors sass
+            ]
 
 type Action
     = UpdateInput String

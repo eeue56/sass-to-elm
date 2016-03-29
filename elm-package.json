@@ -1,23 +1,25 @@
 {
-    "native-modules": true,
+    "version": "1.0.0",
+    "summary": "helpful summary of your project, less than 80 characters",
     "repository": "https://github.com/user/project.git",
     "license": "BSD3",
-    "exposed-modules": [],
-    "version": "1.0.0",
-    "elm-version": "0.16.0 <= v < 0.17.0",
     "source-directories": [
         "src",
         "../elm-css/src"
     ],
+    "exposed-modules": [],
+    "native-modules": true,
     "dependencies": {
-        "rtfeldman/elm-css-helpers": "1.0.0 <= v < 2.0.0",
-        "evancz/start-app": "2.0.2 <= v < 3.0.0",
-        "evancz/elm-effects": "2.0.1 <= v < 3.0.0",
-        "elm-lang/core": "3.0.0 <= v < 4.0.0",
         "circuithub/elm-json-extra": "2.2.1 <= v < 3.0.0",
-        "evancz/elm-html": "4.0.2 <= v < 5.0.0",
         "circuithub/elm-list-extra": "3.10.0 <= v < 4.0.0",
+        "eeue56/elm-flat-matrix": "2.0.4 <= v < 3.0.0",
+        "elm-lang/core": "3.0.0 <= v < 4.0.0",
+        "evancz/elm-effects": "2.0.1 <= v < 3.0.0",
+        "evancz/elm-html": "4.0.2 <= v < 5.0.0",
+        "evancz/start-app": "2.0.2 <= v < 3.0.0",
+        "rluiten/stringdistance": "1.0.1 <= v < 2.0.0",
+        "rtfeldman/elm-css-helpers": "1.0.0 <= v < 2.0.0",
         "rtfeldman/elm-css-util": "1.0.0 <= v < 2.0.0"
     },
-    "summary": "helpful summary of your project, less than 80 characters"
+    "elm-version": "0.16.0 <= v < 0.17.0"
 }
