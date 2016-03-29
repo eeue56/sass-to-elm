@@ -2,9 +2,12 @@ module Sass where
 
 import String
 import Regex
+import CssValidator exposing (isValidElmCssFunction)
+
 
 type FieldType
     = Unit String String
+    | Auto
     | Unknown
 
 type alias Field =
@@ -97,7 +100,11 @@ cssToElm name extra =
             [] ->
                 ""
             [x] ->
-                x ++ plural
+                let
+                    _ =
+                        Debug.log "valid" (isValidElmCssFunction (x ++ plural))
+                in
+                    x ++ plural
             (x::xs) ->
                 x ++ (String.join "" <| List.map capitalize xs) ++ plural
 
@@ -109,6 +116,8 @@ fieldValueFormat field =
             ""
         Unit value unit ->
             unitFormat unit value
+        Auto ->
+            "auto"
 
 
 fieldFormat : Field -> String
@@ -123,6 +132,8 @@ guessFieldType value =
                 splitUnit value
         in
             Unit unitValue unit
+    else if "auto" == value then
+        Auto
     else
         Unknown
 
@@ -283,14 +294,31 @@ createSymbol symbol =
                 }
                 |> Just
 
-parse : String -> String
+parse : String -> List Symbol
 parse values =
     findSymbolsFromText values
-        |> List.map createSymbol
-        |> List.map (Maybe.map symbolFormat)
-        |> List.map (Maybe.withDefault "")
+        |> List.filterMap createSymbol
+
+
+toElmCss : List Symbol -> String
+toElmCss symbols =
+    symbols
+        |> List.map symbolFormat
         |> String.join "\n\n"
 
+allRules : List Symbol -> List Symbol
+allRules symbols =
+    case symbols of
+        [] ->
+            []
+        x::xs ->
+            case x of
+                Rule field ->
+                    x :: (allRules xs)
+                Class class ->
+                    (allRules class.fields) ++ (allRules xs)
+                Id id ->
+                    (allRules id.fields) ++ (allRules xs)
 
 takeWhile : (a -> Bool) -> List a -> List a
 takeWhile predicate list =
