@@ -62,7 +62,7 @@ viewInput address input =
     textarea
         [ on "input" targetValue (Signal.message address << UpdateInput)
         , class [ Input ]
-        , placeholder "Put a valid JSON object in here!"
+        , placeholder "Put some SASS in here!"
         ]
         [ text <| input ]
 
