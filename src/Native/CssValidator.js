@@ -27,7 +27,8 @@ var _eeue56$sass_to_elm$Native_CssValidator = function () {
     var knownNames = fromArray([]);
 
     var isValid = function(name){
-        return [].indexOf(name) > -1;
+        console.log(this);
+        return eval("typeof _rtfeldman$elm_css$Css$" + name) !== "undefined";
     };
 
     var levDistance = function(a, b){
