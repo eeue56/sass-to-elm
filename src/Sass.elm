@@ -1,4 +1,4 @@
-module Sass where
+module Sass exposing (..)
 
 import String
 import Regex
@@ -10,6 +10,7 @@ type FieldType
     | Auto
     | Unknown
 
+
 type alias Field =
     { name : String
     , value : String
@@ -17,12 +18,14 @@ type alias Field =
     , indent : Int
     }
 
+
 emptyField =
     { name = ""
     , value = ""
     , fieldType = Unknown
     , indent = 0
     }
+
 
 type Symbol
     = Class
@@ -37,15 +40,16 @@ type Symbol
         }
     | Rule Field
 
+
 type UnparsedSymbol
     = UnparsedClass
         { name : String
-        , fields : List (Int, String)
+        , fields : List ( Int, String )
         , indent : Int
         }
     | UnparsedId
         { name : String
-        , fields : List (Int, String)
+        , fields : List ( Int, String )
         , indent : Int
         }
     | UnparsedRule
@@ -59,27 +63,31 @@ capitalize name =
     case String.toList name of
         [] ->
             ""
-        x::xs ->
+
+        x :: xs ->
             (String.toUpper (String.fromChar x)) ++ (String.fromList xs)
+
 
 unitFormat : String -> String -> String
 unitFormat unit value =
     "(" ++ unit ++ " " ++ value ++ ")"
 
-splitUnit : String -> (String, String)
+
+splitUnit : String -> ( String, String )
 splitUnit value =
     if String.endsWith "px" <| String.trim value then
-        (String.dropRight 2 value
+        ( String.dropRight 2 value
             |> String.trim
         , "px"
         )
     else if String.endsWith "%" value then
-        (String.dropRight 1 value
+        ( String.dropRight 1 value
             |> String.trim
         , "pct"
         )
     else
-        (value, "")
+        ( value, "" )
+
 
 cssToElm : String -> String -> String
 cssToElm name extra =
@@ -99,13 +107,15 @@ cssToElm name extra =
         case String.split "-" <| String.trim name of
             [] ->
                 ""
-            [x] ->
+
+            [ x ] ->
                 let
                     _ =
                         Debug.log "valid" (isValidElmCssFunction (x ++ plural))
                 in
                     x ++ plural
-            (x::xs) ->
+
+            x :: xs ->
                 x ++ (String.join "" <| List.map capitalize xs) ++ plural
 
 
@@ -114,8 +124,10 @@ fieldValueFormat field =
     case field of
         Unknown ->
             ""
+
         Unit value unit ->
             unitFormat unit value
+
         Auto ->
             "auto"
 
@@ -124,11 +136,12 @@ fieldFormat : Field -> String
 fieldFormat field =
     (String.trim field.name) ++ " " ++ (fieldValueFormat field.fieldType)
 
+
 guessFieldType : String -> FieldType
 guessFieldType value =
     if String.contains "px" value || String.contains "%" value then
         let
-            (unitValue, unit) =
+            ( unitValue, unit ) =
                 splitUnit value
         in
             Unit unitValue unit
@@ -137,10 +150,11 @@ guessFieldType value =
     else
         Unknown
 
+
 createField : String -> Maybe Field
 createField text =
     case String.split ":" text of
-        x::y::_ ->
+        x :: y :: _ ->
             let
                 trimX =
                     String.trim x
@@ -167,17 +181,20 @@ symbolFormat symbol =
     let
         classFormat opener class =
             let
-                (classes, rest) =
+                ( classes, rest ) =
                     List.partition
                         (\x ->
                             case x of
                                 Class _ ->
                                     True
+
                                 Id _ ->
                                     True
+
                                 _ ->
                                     False
-                        ) class.fields
+                        )
+                        class.fields
 
                 formattedFields =
                     List.map symbolFormat rest
@@ -224,7 +241,6 @@ symbolFormat symbol =
                         , doubleIndenter "]"
                         ]
                             |> String.join ""
-
             in
                 String.join ""
                     [ firstIndent ++ (opener ++ " " ++ (capitalize class.name))
@@ -235,13 +251,14 @@ symbolFormat symbol =
                     , "\n"
                     , indenter "]"
                     ]
-
     in
         case symbol of
             Class class ->
                 classFormat "(.)" class
+
             Id class ->
                 classFormat "(#)" class
+
             Rule rule ->
                 fieldFormat rule
 
@@ -251,15 +268,18 @@ isClassSymbol symbol =
     String.trim symbol
         |> String.startsWith "."
 
+
 isIdSymbol : String -> Bool
 isIdSymbol symbol =
     String.trim symbol
         |> String.startsWith "#"
 
+
 isFieldSymbol : String -> Bool
 isFieldSymbol symbol =
     String.trim symbol
         |> String.contains ":"
+
 
 createSymbol : UnparsedSymbol -> Maybe Symbol
 createSymbol symbol =
@@ -272,7 +292,6 @@ createSymbol symbol =
             Class
                 { name =
                     class.name
-
                 , fields =
                     findSymbols class.fields
                         |> List.filterMap createSymbol
@@ -285,7 +304,6 @@ createSymbol symbol =
             Id
                 { name =
                     id.name
-
                 , fields =
                     findSymbols id.fields
                         |> List.filterMap createSymbol
@@ -293,6 +311,7 @@ createSymbol symbol =
                     id.indent
                 }
                 |> Just
+
 
 parse : String -> List Symbol
 parse values =
@@ -306,43 +325,56 @@ toElmCss symbols =
         |> List.map symbolFormat
         |> String.join "\n\n"
 
+
 allRules : List Symbol -> List Symbol
 allRules symbols =
     case symbols of
         [] ->
             []
-        x::xs ->
+
+        x :: xs ->
             case x of
                 Rule field ->
                     x :: (allRules xs)
+
                 Class class ->
                     (allRules class.fields) ++ (allRules xs)
+
                 Id id ->
                     (allRules id.fields) ++ (allRules xs)
 
+
 takeWhile : (a -> Bool) -> List a -> List a
 takeWhile predicate list =
-  case list of
-    []      -> []
-    x::xs   -> if (predicate x) then x :: takeWhile predicate xs
-               else []
+    case list of
+        [] ->
+            []
+
+        x :: xs ->
+            if (predicate x) then
+                x :: takeWhile predicate xs
+            else
+                []
+
 
 findSymbolsFromText : String -> List UnparsedSymbol
 findSymbolsFromText =
     linesWithIndent
-        >> List.filter (snd >> String.trim >> ((/=) ""))
+        >> List.filter (Tuple.second >> String.trim >> ((/=) ""))
         >> findSymbols
 
-findSymbols : List (Int, String) -> List UnparsedSymbol
+
+findSymbols : List ( Int, String ) -> List UnparsedSymbol
 findSymbols lines =
     let
         untilNextClass indent rest =
-            takeWhile (fst >> (\x -> x > indent)) rest
+            takeWhile (Tuple.first >> (\x -> x > indent)) rest
     in
         case lines of
             [] ->
                 []
-            (indent, line)::rest ->
+
+            ( indent, line ) :: rest ->
                 let
                     tilNextClass =
                         untilNextClass indent rest
@@ -355,18 +387,21 @@ findSymbols lines =
                             { name = String.dropLeft 1 (String.trim line)
                             , fields = tilNextClass
                             , indent = indent
-                            } :: findSymbols leftOvers
+                            }
+                            :: findSymbols leftOvers
                     else if isIdSymbol line then
                         UnparsedId
                             { name = String.dropLeft 1 (String.trim line)
                             , fields = tilNextClass
                             , indent = indent
-                            } :: findSymbols leftOvers
+                            }
+                            :: findSymbols leftOvers
                     else if isFieldSymbol line then
                         UnparsedRule
                             { line = line
                             , indent = indent
-                            } :: findSymbols leftOvers
+                            }
+                            :: findSymbols leftOvers
                     else
                         findSymbols rest
 
@@ -379,12 +414,13 @@ removeIndent amount text =
                 |> String.join ""
     in
         String.lines text
-            |> List.map (\line ->
-                if String.startsWith indent line then
-                    String.dropLeft amount line
-                else
-                    line
-                    )
+            |> List.map
+                (\line ->
+                    if String.startsWith indent line then
+                        String.dropLeft amount line
+                    else
+                        line
+                )
             |> String.join "\n"
 
 
@@ -396,6 +432,7 @@ countChar letter text =
         1 + (countChar letter (String.dropLeft 1 text))
     else
         countChar letter (String.dropLeft 1 text)
+
 
 hasConsistentIndentation : List Int -> Bool
 hasConsistentIndentation indentLevels =
@@ -409,15 +446,15 @@ hasConsistentIndentation indentLevels =
         isDivisible : Int -> Int -> Bool
         isDivisible a b =
             a % b == 0
-
     in
         List.all (isDivisible smallest) indentLevels
 
-linesWithIndent : String -> List (Int, String)
+
+linesWithIndent : String -> List ( Int, String )
 linesWithIndent text =
     let
         lines =
             String.lines text
     in
         lines
-            |> List.map (\line -> (countChar " " line, String.trim line))
+            |> List.map (\line -> ( countChar " " line, String.trim line ))

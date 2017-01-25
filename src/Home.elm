@@ -1,13 +1,10 @@
-module Home where
+module Home exposing (..)
 
 import String
 import Util
-
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
-import Effects
-import Task
 import Css exposing (..)
 import Css.Elements as Css
 import Css.Namespace exposing (namespace)
@@ -17,34 +14,39 @@ import Sass exposing (Symbol(..))
 import CssValidator exposing (isValidElmCssFunction)
 
 
-cssNamespace = "homepage"
+cssNamespace =
+    "homepage"
 
-{ class, classList, id } = Html.CssHelpers.withNamespace cssNamespace
+
+{ class, classList, id } =
+    Html.CssHelpers.withNamespace cssNamespace
 
 
-type CssClasses =
-  Content | Input | Output | Alias
+type CssClasses
+    = Content
+    | Input
+    | Output
+    | Alias
+
 
 css =
-  (stylesheet << namespace cssNamespace)
-    [ Css.body
-        [ backgroundColor accent1 ]
-    , (.) Content
-        [ Css.width (px 960)
-        , margin2 zero auto
+    (stylesheet << namespace cssNamespace)
+        [ Css.body
+            [ backgroundColor accent1 ]
+        , (.) Content
+            [ Css.width (px 960)
+            , margin2 zero auto
+            ]
+        , each [ (.) Input, (.) Output ]
+            [ Css.width (pct 40)
+            , Css.height (px 500)
+            , fontFamily monospace
+            ]
+        , aliasCss
         ]
-    , each [ (.) Input, (.) Output ]
-        [ Css.width (pct 40)
-        , Css.height (px 500)
-        , fontFamily monospace
-        ]
-    , aliasCss
-    ]
 
 
-
-
-viewOutput : List Sass.Symbol -> Html
+viewOutput : List Sass.Symbol -> Html msg
 viewOutput alias =
     let
         elmCss =
@@ -55,46 +57,49 @@ viewOutput alias =
             [ class [ Output ]
             , value elmCss
             ]
-            [ text elmCss ]
+            [ Html.text elmCss ]
 
-viewInput : Signal.Address Action -> String -> Html
-viewInput address input =
+
+viewInput : String -> Html Action
+viewInput input =
     textarea
-        [ on "input" targetValue (Signal.message address << UpdateInput)
+        [ onInput UpdateInput
         , class [ Input ]
         , placeholder "Put some SASS in here!"
         ]
-        [ text <| input ]
+        [ Html.text <| input ]
 
-viewErrors : List Sass.Symbol -> Html
+
+viewErrors : List Sass.Symbol -> Html msg
 viewErrors alias =
     let
         errors =
             alias
                 |> Sass.allRules
-                |> List.filterMap (\x ->
-                    case x of
-                        Rule rule ->
-                            if isValidElmCssFunction rule.name then
+                |> List.filterMap
+                    (\x ->
+                        case x of
+                            Rule rule ->
+                                if isValidElmCssFunction rule.name then
+                                    Nothing
+                                else
+                                    String.join ""
+                                        [ "The function "
+                                        , rule.name
+                                        , " was not found for the rule "
+                                        , rule.value
+                                        , ".\nMaybe you meant: "
+                                        , String.join ", " <| CssValidator.suggestions (CssValidator.names) rule.name
+                                        ]
+                                        |> Just
+
+                            _ ->
                                 Nothing
-                            else
-                                String.join ""
-                                    [ "The function "
-                                    , rule.name
-                                    , " was not found for the rule "
-                                    , rule.value
-                                    , ".\nMaybe you meant: "
-                                    , String.join ", " <| CssValidator.suggestions (CssValidator.names) rule.name
-                                    ]
-                                    |> Just
-                        _ ->
-                            Nothing
                     )
     in
-
         ul
             []
-            ((List.map (\error -> li [] [ text error ]) errors))
+            ((List.map (\error -> li [] [ Html.text error ]) errors))
 
 
 aliasCss : Css.Snippet
@@ -110,8 +115,9 @@ aliasCss =
             ]
         ]
 
-view : Signal.Address Action -> Model -> Html
-view address model =
+
+view : Model -> Html Action
+view model =
     let
         sass =
             Sass.parse model.input
@@ -119,31 +125,35 @@ view address model =
         div
             [ class [ Content ] ]
             [ Util.stylesheetLink "/homepage.css"
-            , viewInput address model.input
+            , viewInput model.input
             , viewOutput sass
             , viewErrors sass
             ]
 
+
 type Action
     = UpdateInput String
     | Noop
+
 
 type alias Model =
     { input : String
     , errors : List String
     }
 
-update : Action -> Model -> (Model, Effects.Effects Action)
+
+update : Action -> Model -> ( Model, Cmd Action )
 update action model =
     case action of
         Noop ->
-            (model, Effects.none)
+            ( model, Cmd.none )
+
         UpdateInput input ->
-            (
-                { model
-                    | input = input
-                }
-                , Effects.none)
+            ( { model
+                | input = input
+              }
+            , Cmd.none
+            )
 
 
 model =

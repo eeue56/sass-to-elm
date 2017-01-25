@@ -1,18 +1,34 @@
-var make = function make(elm) {
-    elm.Native = elm.Native || {};
-    elm.Native.CssValidator = elm.Native.CssValidator || {};
+var _eeue56$sass_to_elm$Native_CssValidator = function () {
+    var Nil = { ctor: '[]' };
 
-    if (elm.Native.CssValidator.values) return elm.Native.CssValidator.values;
+    function Cons(hd, tl) {
+      return { ctor: '::', _0: hd, _1: tl };
+    }
 
-    var List = Elm.Native.List.make(elm);
-    var Css = Elm.Css.make(elm);
-    var names = Object.keys(Css);
+    function fromArray(arr) {
+      var out = Nil;
+      for (var i = arr.length; i--; )
+      {
+        out = Cons(arr[i], out);
+      }
+      return out;
+    }
+
+    function toArray(xs) {
+      var out = [];
+      while (xs.ctor !== '[]')
+      {
+        out.push(xs._0);
+        xs = xs._1;
+      }
+      return out;
+    }
+
+    var knownNames = fromArray([]);
 
     var isValid = function(name){
-        return names.indexOf(name) > -1;
+        return [].indexOf(name) > -1;
     };
-
-    var knownNames = List.fromArray(names);
 
     var levDistance = function(a, b){
         if(a.length == 0) return b.length;
@@ -48,12 +64,10 @@ var make = function make(elm) {
       return matrix[b.length][a.length];
     };
 
-    return elm.Native.CssValidator.values = {
+    return {
         isValid: isValid,
         names: knownNames,
         levDistance: F2(levDistance)
     };
-};
 
-Elm.Native.CssValidator = {};
-Elm.Native.CssValidator.make = make;
+}();
