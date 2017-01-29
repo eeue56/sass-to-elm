@@ -17,6 +17,11 @@ names =
     Native.CssValidator.names
 
 
+numberOfArgs : String -> Int
+numberOfArgs name =
+    Native.CssValidator.numberOfArgs name
+
+
 suggestions : List String -> String -> List String
 suggestions names input =
     List.map (\x -> ( levDistance input x, x )) names

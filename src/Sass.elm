@@ -99,21 +99,16 @@ cssToElm name extra =
         plural =
             if List.length args < 2 then
                 ""
-            else if List.length args == 2 then
-                "Two"
             else
-                "Three"
+                List.length args
+                    |> toString
     in
         case String.split "-" <| String.trim name of
             [] ->
                 ""
 
             [ x ] ->
-                let
-                    _ =
-                        Debug.log "valid" (isValidElmCssFunction (x ++ plural))
-                in
-                    x ++ plural
+                x ++ plural
 
             x :: xs ->
                 x ++ (String.join "" <| List.map capitalize xs) ++ plural

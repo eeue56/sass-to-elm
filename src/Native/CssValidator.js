@@ -1,3 +1,5 @@
+var script = document.currentScript;
+console.log(document.currentScript.innerHTML)
 var _eeue56$sass_to_elm$Native_CssValidator = function () {
     var Nil = { ctor: '[]' };
 
@@ -26,9 +28,27 @@ var _eeue56$sass_to_elm$Native_CssValidator = function () {
 
     var knownNames = fromArray([]);
 
+    var elm_css_regex = /var _rtfeldman\$elm_css\$Css\$(.+?)\=/g;
+
+    var findNames = function(stuff){
+      stuff.match(elm_css_regex).map(function(v){
+        var result = /var _rtfeldman\$elm_css\$Css\$(.+?)\=/g.exec(v)[1];
+        result = result.trim();
+      });
+    };
+
+    var loadNodes = function(){
+      console.log(script.innerHTML)
+      console.log(document.getElementsByTagName('script'));
+    }
+
     var isValid = function(name){
-        console.log(this);
+      loadNodes();
         return eval("typeof _rtfeldman$elm_css$Css$" + name) !== "undefined";
+    };
+
+    var numberOfArgs = function(name){
+        return eval("_rtfeldman$elm_css$Css$" + name + ".length");
     };
 
     var levDistance = function(a, b){
@@ -66,6 +86,7 @@ var _eeue56$sass_to_elm$Native_CssValidator = function () {
     };
 
     return {
+        numberOfArgs: numberOfArgs,
         isValid: isValid,
         names: knownNames,
         levDistance: F2(levDistance)
